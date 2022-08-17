@@ -1,0 +1,38 @@
+DECLARE
+    V_C_START DATE;
+    V_C_END DATE;
+    CONTRACT_DURATION NUMBER(10); 
+     V_MAX NUMBER(4);
+     V_MIN NUMBER(4);
+     V_C_P_TYPE VARCHAR2(100);
+     V_T_FEES NUMBER;
+     V_D_FEES NUMBER;
+BEGIN
+      SELECT MIN(CONTRACT_ID), MAX(CONTRACT_ID) INTO V_MIN, V_MAX FROM CONTRACTS;
+      
+      FOR I IN V_MIN..V_MAX LOOP
+         SELECT CONTRACT_STARTDATE,CONTRACT_ENDDATE, CONTRACT_PAYMENT_TYPE ,CONTRACT_TOTAL_FEES,CONTRACT_DEPOSIT_FEES
+         INTO V_C_START,V_C_END,V_C_P_TYPE , V_T_FEES, V_D_FEES
+          FROM CONTRACTS
+         WHERE CONTRACT_ID=I;
+        CONTRACT_DURATION := MONTHS_BETWEEN(V_C_END,V_C_START) ;
+              
+                IF V_C_P_TYPE ='ANNUAL' THEN
+                     UPDATE  CONTRACTS
+                     SET PAYMENTS_INSTALLMENTS_NO=CONTRACT_DURATION/12
+                     WHERE CONTRACT_ID=I;                   
+                ELSIF V_C_P_TYPE ='QUARTER' THEN
+                     UPDATE  CONTRACTS      
+                     SET PAYMENTS_INSTALLMENTS_NO=CONTRACT_DURATION/3     
+                     WHERE CONTRACT_ID=I;                    
+                ELSIF V_C_P_TYPE ='MONTHLY' THEN  
+                     UPDATE  CONTRACTS      
+                     SET PAYMENTS_INSTALLMENTS_NO=CONTRACT_DURATION 
+                     WHERE CONTRACT_ID=I;                 
+                ELSIF V_C_P_TYPE ='HALF_ANNUAL' THEN
+                 UPDATE  CONTRACTS      
+                 SET PAYMENTS_INSTALLMENTS_NO=CONTRACT_DURATION/6 
+                 WHERE CONTRACT_ID=I;                   
+                END IF;  
+     END LOOP;
+END;

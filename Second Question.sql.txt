@@ -1,0 +1,91 @@
+DECLARE
+    V_C_START DATE;
+    V_C_END DATE;
+    CONTRACT_DURATION NUMBER(10); 
+     V_MAX NUMBER(4);
+     V_MIN NUMBER(4);
+     V_C_P_TYPE VARCHAR2(100);
+     V_T_FEES NUMBER;
+     V_D_FEES NUMBER;
+     ORGINAL_FEES NUMBER;
+     V_CONTRACT_ID NUMBER;
+      V_INSTALLMENT_DATE DATE;
+       V_ORIGINAL_AMOUNT NUMBER(10,2);
+        V_P_INSTALLMENTS_NO NUMBER;
+       V_C_PAYMENT_TYPE VARCHAR2(100);
+       V_INSTALLMENT_AMOUNT NUMBER(10,2);
+       V_PAID NUMBER;
+BEGIN
+      SELECT MIN(CONTRACT_ID), MAX(CONTRACT_ID) INTO V_MIN, V_MAX FROM CONTRACTS;
+      
+      FOR I IN V_MIN..V_MAX LOOP
+         SELECT CONTRACT_STARTDATE,CONTRACT_ENDDATE, CONTRACT_PAYMENT_TYPE ,CONTRACT_TOTAL_FEES,CONTRACT_DEPOSIT_FEES
+         INTO V_C_START,V_C_END,V_C_P_TYPE , V_T_FEES, V_D_FEES
+          FROM CONTRACTS
+         WHERE CONTRACT_ID=I;
+        CONTRACT_DURATION := MONTHS_BETWEEN(V_C_END,V_C_START) ;
+        ORGINAL_FEES := V_T_FEES - V_D_FEES;
+      
+                IF V_C_P_TYPE ='ANNUAL' THEN
+                     UPDATE  CONTRACTS
+                     SET PAYMENTS_INSTALLMENTS_NO=CONTRACT_DURATION/12
+                     WHERE CONTRACT_ID=I;                   
+                ELSIF V_C_P_TYPE ='QUARTER' THEN
+                     UPDATE  CONTRACTS      
+                     SET PAYMENTS_INSTALLMENTS_NO=CONTRACT_DURATION/3     
+                     WHERE CONTRACT_ID=I;                    
+                ELSIF V_C_P_TYPE ='MONTHLY' THEN  
+                     UPDATE  CONTRACTS      
+                     SET PAYMENTS_INSTALLMENTS_NO=CONTRACT_DURATION 
+                     WHERE CONTRACT_ID=I;                 
+                ELSIF V_C_P_TYPE ='HALF_ANNUAL' THEN
+                 UPDATE  CONTRACTS      
+                 SET PAYMENTS_INSTALLMENTS_NO=CONTRACT_DURATION/6 
+                 WHERE CONTRACT_ID=I;                   
+                END IF;  
+     END LOOP;
+     
+   
+      
+           FOR I IN V_MIN..V_MAX LOOP
+            SELECT CONTRACT_ID, CONTRACT_STARTDATE, CONTRACT_TOTAL_FEES - CONTRACT_DEPOSIT_FEES
+            , PAYMENTS_INSTALLMENTS_NO, CONTRACT_PAYMENT_TYPE
+             INTO
+             V_CONTRACT_ID, V_INSTALLMENT_DATE, V_ORIGINAL_AMOUNT, V_P_INSTALLMENTS_NO, V_C_PAYMENT_TYPE
+                FROM CONTRACTS
+                 WHERE CONTRACT_ID = I;
+                 
+                 -----------------------
+                 V_INSTALLMENT_AMOUNT :=V_ORIGINAL_AMOUNT/ V_P_INSTALLMENTS_NO;
+        FOR X in 1..V_P_INSTALLMENTS_NO  LOOP
+            IF X = 1 THEN
+                 V_INSTALLMENT_DATE :=  V_INSTALLMENT_DATE;
+            ELSE
+                SELECT MAX(INSTALLMENT_DATE) INTO V_INSTALLMENT_DATE FROM Installments_Paid WHERE Contract_ID = I;
+                IF V_C_PAYMENT_TYPE = 'ANNUAL' THEN
+                    V_INSTALLMENT_DATE := ADD_MONTHS(V_INSTALLMENT_DATE, 12);
+                ELSIF V_C_PAYMENT_TYPE = 'HALF_ANNUAL' THEN
+                    V_INSTALLMENT_DATE := ADD_MONTHS(V_INSTALLMENT_DATE, 6);
+                ELSIF V_C_PAYMENT_TYPE = 'QUARTER' THEN
+                    V_INSTALLMENT_DATE := ADD_MONTHS(V_INSTALLMENT_DATE, 3);
+                ELSE
+                    V_INSTALLMENT_DATE := ADD_MONTHS(V_INSTALLMENT_DATE, 1);
+                END IF;
+           END IF;
+            ----------------------------------
+            INSERT INTO INSTALLMENTS_PAID
+                    VALUES( 
+                                    INSTALLMENT_ID_SEQ.NEXTVAL,
+                                    V_CONTRACT_ID,
+                                    V_INSTALLMENT_DATE,
+                                    V_INSTALLMENT_AMOUNT,
+                                    V_PAID
+                                 );         
+      END LOOP;
+END LOOP;
+END;
+-----------------------------
+CREATE SEQUENCE INSTALLMENT_ID_SEQ
+        START WITH 1
+        INCREMENT BY 1
+        MAXVALUE 9999999999;
